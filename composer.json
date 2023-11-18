@@ -1,0 +1,25 @@
+{
+    "name": "tarre/laravel-http-query-builder",
+    "description": "Lesser bloat in controllers",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tariqul Islam",
+            "email": "tarre.islam@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Tarre\\HttpQueryBuilder\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "laravel/framework": "*"
+    },
+    "suggest": {
+        "laravel/scout": "Enable search functionality"
+    }
+}
