@@ -101,21 +101,9 @@ abstract class HttpQueryBuilder
             throw new ParseBaseException('Could not figure out how to retrieve results');
         }
         /*
-         * Map records in result
-         */
-        if (!is_null($mapper = $this->mapper())) {
-            $items = $items->map($mapper);
-        }
-        /*
-         * Wrap entire result
-         */
-        if (!is_null($wrapper = $this->wrapper())) {
-            $items = $wrapper($items);
-        }
-        /*
          * Return collection
          */
-        return $items;
+        return $this->wrapAndMap($items);
     }
 
     /**
@@ -134,35 +122,62 @@ abstract class HttpQueryBuilder
      */
     public final function paginate(string $pageKey = 'page', string $ppKey = 'perPage', string $pathKey = 'path'): LengthAwarePaginator
     {
+        /*
+        * Get pages
+        */
+        $page = $this->request->get($pageKey);
         $perPage = $this->request->get($ppKey, $this->resultsPerPage);
         /*
          * Grab base model
          */
-        $items = $this->get(true);
+        $items = $this->get(true); // true = forpagination.
         /*
-         * Models and query builders asking for pagination, we serve them via the models,
+         * For items that has not been retrieved yet, we need to make adjustments
          */
         if ($items instanceof QueryBuilder || $items instanceof Model || $items instanceof Relation || $items instanceof EloquentBuilder) {
             /*
-            * Map result
+             * Get count before we query (select count(*) from whatever)
+             */
+            $count = $items->count();
+            /*
+             * select * from whatever " limit 15 offset 30", AKA much faster than if collection
+             */
+            $items = $items->forPage($page, $perPage)->get();
+            /*
+            * Transform items
             */
-            if (!is_null($this->mapper())) {
-                throw new NotSupportedException("You cannot map results when paginating from raw builder, please use ::get() or ::all() and modify the data in the \"base\" method");
-            }
-            return $items->paginate();
+            $items = $this->wrapAndMap($items);
+        } else {
+            /*
+             * If we are here, we probably have an filled collection and "wrapandmap" is already triggered before
+             */
+            $count = $items->count();
+            $items = $items->forPage($page, $perPage)->values(); // w/o values we will get bad keys that javascript will interpet as objetcs
         }
         /*
-         * Get pages
+         * Return paginator
          */
-        $page = $this->request->get($pageKey);
-        /*
-         * Paginate
-         */
-        $items = $items->forPage($page, $perPage);
-        return new LengthAwarePaginator($items, $items->count(), $perPage, $page, [
+        return new LengthAwarePaginator($items, $count, $perPage, $page, [
             $pathKey => $this->request->url(),
         ]);
+    }
 
+    protected function wrapAndMap($items)
+    {
+        /*
+         * Map records in result
+         */
+        if (!is_null($mapper = $this->mapper())) {
+            $items = $items->map($mapper);
+        }
+        /*
+         * Wrap entire result
+         */
+        if (!is_null($wrapper = $this->wrapper())) {
+            $items = $wrapper($items);
+        }
+
+        return $items;
     }
 
     protected function model()
